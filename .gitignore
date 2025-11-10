@@ -1,5 +1,1 @@
-DATABASE_URL=mysql+pymysql://root:DiaperGirl69@localhost/mechanic_shop
-FLASK_APP=app.py
-FLASK_ENV=development
-DATABASE_URL=sqlite:///your_database.db  # or your actual DB URI
-
+.env
