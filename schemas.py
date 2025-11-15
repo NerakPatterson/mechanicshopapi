@@ -30,7 +30,7 @@ class ServiceTicketSchema(ma.SQLAlchemyAutoSchema):
 ticket_schema = ServiceTicketSchema()
 tickets_schema = ServiceTicketSchema(many=True)
 
-# Mechanic Schema
+# Mechanic Schema for Creation/Retrieval (returns model instance)
 class MechanicSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Mechanic
@@ -38,6 +38,17 @@ class MechanicSchema(ma.SQLAlchemyAutoSchema):
 
 mechanic_schema = MechanicSchema()
 mechanics_schema = MechanicSchema(many=True)
+
+# Mechanic Schema for Updates (returns a standard dictionary)
+# This is used for PUT/PATCH methods where we only want the dictionary data,
+# not a model instance, so we can check individual fields like 'email'.
+class MechanicUpdateSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Mechanic
+        # Explicitly set load_instance to False (default) to ensure load() returns a dictionary.
+        load_instance = False 
+
+mechanic_update_schema = MechanicUpdateSchema() # NEW instance for updates
 
 # ServiceAssignment Schema
 class ServiceAssignmentSchema(ma.SQLAlchemyAutoSchema):

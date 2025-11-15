@@ -3,27 +3,27 @@ from sqlalchemy import select
 from marshmallow import ValidationError
 from extensions import db
 from models import Mechanic
-from schemas import mechanic_schema, mechanics_schema 
-
-# --- API Endpoints defined at Module Level (Fixes Pylance visibility) ---
+from schemas import mechanic_schema, mechanics_schema, mechanic_update_schema 
 
 def create_mechanic():
     """POST /mechanics - Create a new mechanic."""
     try:
+        # NOTE: Since load_instance=True is used, mechanic_data is a Mechanic model instance.
         mechanic_data = mechanic_schema.load(request.json)
     except ValidationError as e:
         return jsonify(e.messages), 400
 
-    # Check for email conflict
-    query = select(Mechanic).where(Mechanic.email == mechanic_data.get('email'))
+    # Check for existing email before creation
+    query = select(Mechanic).where(Mechanic.email == mechanic_data.email)
     existing_mechanic = db.session.execute(query).scalars().first()
+    
     if existing_mechanic:
         return jsonify({"error": "Email already associated with an existing mechanic"}), 409
 
-    new_mechanic = Mechanic(**mechanic_data)
-    db.session.add(new_mechanic)
+    # Since Marshmallow already gave us a model instance, we just add and commit it
+    db.session.add(mechanic_data)
     db.session.commit()
-    return mechanic_schema.jsonify(new_mechanic), 201
+    return mechanic_schema.jsonify(mechanic_data), 201
 
 def get_mechanics():
     """GET /mechanics - Get all mechanics."""
@@ -45,19 +45,19 @@ def update_mechanic(mechanic_id):
         return jsonify({"error": "Mechanic not found."}), 404
 
     try:
-        mechanic_data = mechanic_schema.load(request.json, partial=True)
+        mechanic_data_dict = mechanic_update_schema.load(request.json, partial=True) 
     except ValidationError as e:
         return jsonify(e.messages), 400
 
-    # Check for email conflict during update
-    new_email = mechanic_data.get('email')
+    
+    new_email = mechanic_data_dict.get('email')
     if new_email and new_email != mechanic.email:
         query = select(Mechanic).where(Mechanic.email == new_email)
         existing_mechanic = db.session.execute(query).scalars().first()
         if existing_mechanic and existing_mechanic.id != mechanic_id:
             return jsonify({"error": "Email already associated with another mechanic"}), 409
 
-    for key, value in mechanic_data.items():
+    for key, value in mechanic_data_dict.items():
         setattr(mechanic, key, value)
 
     db.session.commit()
@@ -73,9 +73,8 @@ def delete_mechanic(mechanic_id):
     db.session.commit()
     return jsonify({"message": f"Mechanic {mechanic_id} deleted successfully"}), 200
 
-# -------------------------------------------------------------------
+
 # Route Registration
-# -------------------------------------------------------------------
 
 def register_mechanic_routes(app):
     """Binds mechanic CRUD routes to the Flask application."""

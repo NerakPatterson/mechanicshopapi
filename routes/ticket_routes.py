@@ -5,19 +5,19 @@ from extensions import db
 from models import ServiceTicket
 from schemas import ticket_schema, tickets_schema 
 
-# --- API Endpoints defined at Module Level (Fixes Pylance visibility) ---
-
 def create_ticket():
     """POST /tickets - Create a new service ticket."""
     try:
+        # Assuming ticket_schema uses load_instance=True, this returns a ServiceTicket object.
         ticket_data = ticket_schema.load(request.json)
     except ValidationError as e:
         return jsonify(e.messages), 400
 
-    new_ticket = ServiceTicket(**ticket_data)
-    db.session.add(new_ticket)
+    # If Marshmallow returns the model instance (due to load_instance=True), 
+    # we add it directly instead of creating a new object from dictionary unpacking.
+    db.session.add(ticket_data)
     db.session.commit()
-    return ticket_schema.jsonify(new_ticket), 201
+    return ticket_schema.jsonify(ticket_data), 201
 
 def get_tickets():
     """GET /tickets - Get all service tickets."""
@@ -39,12 +39,14 @@ def update_ticket(ticket_id):
         return jsonify({"error": "Service ticket not found."}), 404
 
     try:
-        ticket_data = ticket_schema.load(request.json, partial=True)
+        # Use Marshmallow's built-in object updating via `instance` argument 
+        # The existing `ticket` object is passed as the instance to be updated.
+        # `partial=True` ensures only fields present in the request are updated.
+        # The return value is the now-updated `ticket` instance.
+        ticket = ticket_schema.load(request.json, instance=ticket, partial=True)
+        
     except ValidationError as e:
         return jsonify(e.messages), 400
-
-    for key, value in ticket_data.items():
-        setattr(ticket, key, value)
 
     db.session.commit()
     return ticket_schema.jsonify(ticket), 200
@@ -59,9 +61,8 @@ def delete_ticket(ticket_id):
     db.session.commit()
     return jsonify({"message": f"Service ticket {ticket_id} deleted successfully"}), 200
 
-# -------------------------------------------------------------------
+
 # Route Registration
-# -------------------------------------------------------------------
 
 def register_ticket_routes(app):
     """Binds service ticket CRUD routes to the Flask application."""
