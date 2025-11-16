@@ -1,5 +1,8 @@
-Flask
-Flask-SQLAlchemy
-Flask-Marshmallow
-python-dotenv
-PyMySQL
+Flask>=3.0
+Flask-SQLAlchemy>=3.1
+SQLAlchemy>=2.0
+Flask-Marshmallow>=0.15
+marshmallow-sqlalchemy>=0.28
+Flask-Migrate>=4.0
+python-dotenv>=1.0
+PyMySQL>=1.1

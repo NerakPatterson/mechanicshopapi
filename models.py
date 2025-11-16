@@ -9,7 +9,7 @@ class Customer(db.Model):
     address = db.Column(db.Text, nullable=True)
 
 class Vehicle(db.Model):
-    __tablename__ = 'vehicle'
+    __tablename__ = 'vehicles'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     vin = db.Column(db.String(17), nullable=False, unique=True)
     make = db.Column(db.String(50), nullable=False)
@@ -21,7 +21,7 @@ class Vehicle(db.Model):
 class ServiceTicket(db.Model):
     __tablename__ = 'service_tickets'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicle.id'), nullable=False)
+    vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicles.id'), nullable=False)  # fixed here
     date = db.Column(db.Date, nullable=False)
     description = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(50), nullable=False)
@@ -38,11 +38,9 @@ class Mechanic(db.Model):
     salary = db.Column(db.Numeric(10, 2), nullable=False)
 
 class ServiceAssignment(db.Model):
-    __tablename__ = 'service_assignment'
+    __tablename__ = 'service_assignments'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     service_ticket_id = db.Column(db.Integer, db.ForeignKey('service_tickets.id'), nullable=False)
     mechanic_id = db.Column(db.Integer, db.ForeignKey('mechanics.id'), nullable=False)
     ticket = db.relationship('ServiceTicket', backref='assignments')
     mechanic = db.relationship('Mechanic', backref='assignments')
-    
-    

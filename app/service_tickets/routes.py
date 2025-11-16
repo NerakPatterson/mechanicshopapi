@@ -2,29 +2,30 @@ from flask import request, jsonify
 from sqlalchemy import select
 from marshmallow import ValidationError
 from extensions import db
-from models import ServiceTicket
-from schemas import ticket_schema, tickets_schema 
+from models import ServiceTicket, Mechanic, ServiceAssignment
+from .schemas import ticket_schema, tickets_schema
+from . import ticket_bp
 
+@ticket_bp.route("/", methods=["POST"])
 def create_ticket():
     """POST /tickets - Create a new service ticket."""
     try:
-        # Assuming ticket_schema uses load_instance=True, this returns a ServiceTicket object.
         ticket_data = ticket_schema.load(request.json)
     except ValidationError as e:
         return jsonify(e.messages), 400
 
-    # If Marshmallow returns the model instance (due to load_instance=True), 
-    # we add it directly instead of creating a new object from dictionary unpacking.
     db.session.add(ticket_data)
     db.session.commit()
     return ticket_schema.jsonify(ticket_data), 201
 
+@ticket_bp.route("/", methods=["GET"])
 def get_tickets():
     """GET /tickets - Get all service tickets."""
     query = select(ServiceTicket)
     tickets = db.session.execute(query).scalars().all()
     return tickets_schema.jsonify(tickets)
 
+@ticket_bp.route("/<int:ticket_id>", methods=["GET"])
 def get_ticket(ticket_id):
     """GET /tickets/<int:ticket_id> - Get a single service ticket."""
     ticket = db.session.get(ServiceTicket, ticket_id)
@@ -32,6 +33,7 @@ def get_ticket(ticket_id):
         return ticket_schema.jsonify(ticket), 200
     return jsonify({"error": "Service ticket not found."}), 404
 
+@ticket_bp.route("/<int:ticket_id>", methods=["PUT"])
 def update_ticket(ticket_id):
     """PUT /tickets/<int:ticket_id> - Update an existing service ticket."""
     ticket = db.session.get(ServiceTicket, ticket_id)
@@ -39,18 +41,14 @@ def update_ticket(ticket_id):
         return jsonify({"error": "Service ticket not found."}), 404
 
     try:
-        # Use Marshmallow's built-in object updating via `instance` argument 
-        # The existing `ticket` object is passed as the instance to be updated.
-        # `partial=True` ensures only fields present in the request are updated.
-        # The return value is the now-updated `ticket` instance.
         ticket = ticket_schema.load(request.json, instance=ticket, partial=True)
-        
     except ValidationError as e:
         return jsonify(e.messages), 400
 
     db.session.commit()
     return ticket_schema.jsonify(ticket), 200
 
+@ticket_bp.route("/<int:ticket_id>", methods=["DELETE"])
 def delete_ticket(ticket_id):
     """DELETE /tickets/<int:ticket_id> - Delete a service ticket."""
     ticket = db.session.get(ServiceTicket, ticket_id)
@@ -60,14 +58,3 @@ def delete_ticket(ticket_id):
     db.session.delete(ticket)
     db.session.commit()
     return jsonify({"message": f"Service ticket {ticket_id} deleted successfully"}), 200
-
-
-# Route Registration
-
-def register_ticket_routes(app):
-    """Binds service ticket CRUD routes to the Flask application."""
-    app.add_url_rule("/tickets", view_func=create_ticket, methods=['POST'])
-    app.add_url_rule("/tickets", view_func=get_tickets, methods=['GET'])
-    app.add_url_rule("/tickets/<int:ticket_id>", view_func=get_ticket, methods=['GET'])
-    app.add_url_rule("/tickets/<int:ticket_id>", view_func=update_ticket, methods=['PUT'])
-    app.add_url_rule("/tickets/<int:ticket_id>", view_func=delete_ticket, methods=['DELETE'])
