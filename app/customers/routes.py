@@ -6,6 +6,27 @@ from extensions import db
 from models import Customer
 from .schemas import customer_schema, customers_schema
 from . import customer_bp
+from flask import Blueprint, request
+from extensions import limiter, cache, db
+from models import Customer
+
+customer_bp = Blueprint("customers", __name__)
+
+@customer_bp.route("/", methods=["GET"])
+@cache.cached(timeout=60)
+def list_customers():
+    customers = Customer.query.all()
+    return {"customers": [c.email for c in customers]}
+
+@customer_bp.route("/", methods=["POST"])
+@limiter.limit("10 per hour")
+def create_customer():
+    data = request.json
+    new_customer = Customer(**data)
+    db.session.add(new_customer)
+    db.session.commit()
+    return {"message": "Customer created"}, 201
+
 
 # Helper function to check for email conflict
 def _check_email_conflict(email, customer_id=None):

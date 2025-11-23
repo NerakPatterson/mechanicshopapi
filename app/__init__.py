@@ -1,8 +1,8 @@
 from flask import Flask
 from dotenv import load_dotenv
 import os
+from extensions import db, ma, migrate, limiter, cache
 
-from extensions import db, ma, migrate
 
 def create_app():
     # Load environment variables
@@ -12,10 +12,15 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+    # Optional cache config
+    app.config['CACHE_TYPE'] = 'SimpleCache'  # or 'RedisCache', etc.
+
     # Initialize extensions
     db.init_app(app)
     ma.init_app(app)
     migrate.init_app(app, db)
+    cache.init_app(app)
+    limiter.init_app(app)
 
     # Import and register blueprints
     from app.mechanics import mechanic_bp

@@ -5,6 +5,27 @@ from extensions import db
 from models import ServiceAssignment, ServiceTicket, Mechanic
 from .schemas import assignment_schema, assignments_schema
 from . import assignment_bp
+from flask import Blueprint, request
+from extensions import limiter, cache, db
+from models import ServiceAssignment
+
+assignment_bp = Blueprint("assignments", __name__)
+
+@assignment_bp.route("/", methods=["GET"])
+@cache.cached(timeout=45)
+def list_assignments():
+    assignments = ServiceAssignment.query.all()
+    return {"assignments": [{"ticket": a.ticket_id, "mechanic": a.mechanic_id} for a in assignments]}
+
+@assignment_bp.route("/", methods=["POST"])
+@limiter.limit("15 per day")
+def create_assignment():
+    data = request.json
+    new_assignment = ServiceAssignment(**data)
+    db.session.add(new_assignment)
+    db.session.commit()
+    return {"message": "Assignment created"}, 201
+
 
 @assignment_bp.route("/", methods=["POST"])
 def create_assignment():

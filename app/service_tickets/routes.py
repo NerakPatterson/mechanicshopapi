@@ -2,9 +2,30 @@ from flask import request, jsonify
 from sqlalchemy import select
 from marshmallow import ValidationError
 from extensions import db
-from models import ServiceTicket, Mechanic, ServiceAssignment
+from models import ServiceTicket
 from .schemas import ticket_schema, tickets_schema
 from . import ticket_bp
+from flask import Blueprint, request
+from extensions import limiter, cache, db
+from models import ServiceTicket
+
+ticket_bp = Blueprint("tickets", __name__)
+
+@ticket_bp.route("/", methods=["GET"])
+@cache.cached(timeout=30)
+def list_tickets():
+    tickets = ServiceTicket.query.all()
+    return {"tickets": [t.status for t in tickets]}
+
+@ticket_bp.route("/", methods=["POST"])
+@limiter.limit("20 per day")
+def create_ticket():
+    data = request.json
+    new_ticket = ServiceTicket(**data)
+    db.session.add(new_ticket)
+    db.session.commit()
+    return {"message": "Ticket created"}, 201
+
 
 @ticket_bp.route("/", methods=["POST"])
 def create_ticket():

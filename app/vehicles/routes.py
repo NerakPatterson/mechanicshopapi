@@ -5,6 +5,27 @@ from extensions import db
 from models import Vehicle
 from .schemas import vehicle_schema, vehicles_schema
 from . import vehicle_bp
+from flask import Blueprint, request
+from extensions import limiter, cache, db
+from models import Vehicle
+
+vehicle_bp = Blueprint("vehicles", __name__)
+
+@vehicle_bp.route("/", methods=["GET"])
+@cache.cached(timeout=120)
+def list_vehicles():
+    vehicles = Vehicle.query.all()
+    return {"vehicles": [v.vin for v in vehicles]}
+
+@vehicle_bp.route("/", methods=["POST"])
+@limiter.limit("10 per hour")
+def create_vehicle():
+    data = request.json
+    new_vehicle = Vehicle(**data)
+    db.session.add(new_vehicle)
+    db.session.commit()
+    return {"message": "Vehicle created"}, 201
+
 
 @vehicle_bp.route("/", methods=["POST"])
 def create_vehicle():

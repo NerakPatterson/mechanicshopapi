@@ -5,6 +5,27 @@ from extensions import db
 from models import Mechanic
 from .schemas import mechanic_schema, mechanics_schema, mechanic_update_schema
 from . import mechanic_bp   # import the blueprint
+from flask import Blueprint, request
+from extensions import limiter, cache, db
+from models import Mechanic
+
+mechanic_bp = Blueprint("mechanics", __name__)
+
+@mechanic_bp.route("/", methods=["GET"])
+@cache.cached(timeout=60)
+def list_mechanics():
+    mechanics = Mechanic.query.all()
+    return {"mechanics": [m.email for m in mechanics]}
+
+@mechanic_bp.route("/", methods=["POST"])
+@limiter.limit("5 per hour")
+def create_mechanic():
+    data = request.json
+    new_mechanic = Mechanic(**data)
+    db.session.add(new_mechanic)
+    db.session.commit()
+    return {"message": "Mechanic created"}, 201
+
 
 @mechanic_bp.route("/", methods=["POST"])
 def create_mechanic():
