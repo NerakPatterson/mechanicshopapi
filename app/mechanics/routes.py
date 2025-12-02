@@ -1,35 +1,41 @@
 from flask import request, jsonify
-from sqlalchemy import select
+from sqlalchemy import select, func
 from marshmallow import ValidationError
-from extensions import db
-from models import Mechanic
+from extensions import db, limiter, cache
+from models import Mechanic, ServiceAssignment
 from .schemas import mechanic_schema, mechanics_schema, mechanic_update_schema
-from . import mechanic_bp   # import the blueprint
-from flask import Blueprint, request
-from extensions import limiter, cache, db
-from models import Mechanic
+from . import mechanic_bp
+from utils.decorators import auth_required   # unified decorator
 
-mechanic_bp = Blueprint("mechanics", __name__)
+@mechanic_bp.route("/ranked", methods=["GET"])
+def ranked_mechanics():
+    """GET /mechanics/ranked - List mechanics ordered by ticket count."""
+    query = (
+        db.session.query(Mechanic, func.count(ServiceAssignment.id).label("ticket_count"))
+        .join(ServiceAssignment, Mechanic.id == ServiceAssignment.mechanic_id)
+        .group_by(Mechanic.id)
+        .order_by(func.count(ServiceAssignment.id).desc())
+    )
+    results = query.all()
+
+    return jsonify([
+        {"id": mech.id, "name": mech.name, "ticket_count": count}
+        for mech, count in results
+    ]), 200
 
 @mechanic_bp.route("/", methods=["GET"])
 @cache.cached(timeout=60)
-def list_mechanics():
-    mechanics = Mechanic.query.all()
-    return {"mechanics": [m.email for m in mechanics]}
+def get_mechanics():
+    """GET /mechanics - Get all mechanics."""
+    query = select(Mechanic)
+    mechanics = db.session.execute(query).scalars().all()
+    return jsonify(mechanics_schema.dump(mechanics)), 200
 
 @mechanic_bp.route("/", methods=["POST"])
+@auth_required("admin")   # only admins allowed
 @limiter.limit("5 per hour")
-def create_mechanic():
-    data = request.json
-    new_mechanic = Mechanic(**data)
-    db.session.add(new_mechanic)
-    db.session.commit()
-    return {"message": "Mechanic created"}, 201
-
-
-@mechanic_bp.route("/", methods=["POST"])
-def create_mechanic():
-    """POST /mechanics - Create a new mechanic."""
+def create_mechanic(user_id):
+    """POST /mechanics - Create a new mechanic (admin only)."""
     try:
         mechanic_data = mechanic_schema.load(request.json)
     except ValidationError as e:
@@ -42,26 +48,24 @@ def create_mechanic():
 
     db.session.add(mechanic_data)
     db.session.commit()
-    return mechanic_schema.jsonify(mechanic_data), 201
 
-@mechanic_bp.route("/", methods=["GET"])
-def get_mechanics():
-    """GET /mechanics - Get all mechanics."""
-    query = select(Mechanic)
-    mechanics = db.session.execute(query).scalars().all()
-    return mechanics_schema.jsonify(mechanics)
+    return jsonify({
+        "message": f"Mechanic created by admin (user {user_id})",
+        "mechanic": mechanic_schema.dump(mechanic_data)
+    }), 201
 
 @mechanic_bp.route("/<int:mechanic_id>", methods=["GET"])
 def get_mechanic(mechanic_id):
-    """GET /mechanics/<int:mechanic_id> - Get a single mechanic."""
+    """GET /mechanics/<mechanic_id> - Get a single mechanic."""
     mechanic = db.session.get(Mechanic, mechanic_id)
     if mechanic:
-        return mechanic_schema.jsonify(mechanic), 200
+        return jsonify(mechanic_schema.dump(mechanic)), 200
     return jsonify({"error": "Mechanic not found."}), 404
 
 @mechanic_bp.route("/<int:mechanic_id>", methods=["PUT"])
-def update_mechanic(mechanic_id):
-    """PUT /mechanics/<int:mechanic_id> - Update an existing mechanic."""
+@auth_required("admin")   # only admins can update
+def update_mechanic(user_id, role, mechanic_id):
+    """PUT /mechanics/<mechanic_id> - Update an existing mechanic (admin only)."""
     mechanic = db.session.get(Mechanic, mechanic_id)
     if not mechanic:
         return jsonify({"error": "Mechanic not found."}), 404
@@ -82,15 +86,19 @@ def update_mechanic(mechanic_id):
         setattr(mechanic, key, value)
 
     db.session.commit()
-    return mechanic_schema.jsonify(mechanic), 200
+    return jsonify({
+        "message": f"Mechanic updated by admin (user {user_id})",
+        "mechanic": mechanic_schema.dump(mechanic)
+    }), 200
 
 @mechanic_bp.route("/<int:mechanic_id>", methods=["DELETE"])
-def delete_mechanic(mechanic_id):
-    """DELETE /mechanics/<int:mechanic_id> - Delete a mechanic."""
+@auth_required("admin")   # only admins can delete
+def delete_mechanic(user_id, role, mechanic_id):
+    """DELETE /mechanics/<mechanic_id> - Delete a mechanic (admin only)."""
     mechanic = db.session.get(Mechanic, mechanic_id)
     if not mechanic:
         return jsonify({"error": "Mechanic not found."}), 404
 
     db.session.delete(mechanic)
     db.session.commit()
-    return jsonify({"message": f"Mechanic {mechanic_id} deleted successfully"}), 200
+    return jsonify({"message": f"Mechanic {mechanic_id} deleted by admin (user {user_id})"}), 200

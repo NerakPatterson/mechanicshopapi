@@ -1,20 +1,20 @@
-# app/customers/schemas.py
+# app/users/schemas.py
 from extensions import ma
-from models import Customer
+from models import User
 
-class CustomerSchema(ma.SQLAlchemyAutoSchema):
+class UserSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
-        model = Customer
+        model = User
         include_fk = True
         load_instance = True
 
-customer_schema = CustomerSchema()
-customers_schema = CustomerSchema(many=True)
+user_schema = UserSchema()
+users_schema = UserSchema(many=True)
 
 # Login schema: only email + password
 class LoginSchema(ma.SQLAlchemySchema):
     class Meta:
-        model = Customer
+        model = User
         load_instance = True
 
     email = ma.auto_field()

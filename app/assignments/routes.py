@@ -1,35 +1,26 @@
 from flask import request, jsonify
 from sqlalchemy import select
 from marshmallow import ValidationError
-from extensions import db
+from extensions import db, limiter, cache
 from models import ServiceAssignment, ServiceTicket, Mechanic
 from .schemas import assignment_schema, assignments_schema
 from . import assignment_bp
-from flask import Blueprint, request
-from extensions import limiter, cache, db
-from models import ServiceAssignment
-
-assignment_bp = Blueprint("assignments", __name__)
+from utils.decorators import auth_required   # unified decorator
 
 @assignment_bp.route("/", methods=["GET"])
 @cache.cached(timeout=45)
 def list_assignments():
+    """GET /assignments - Cached list of assignments (ticket + mechanic IDs)."""
     assignments = ServiceAssignment.query.all()
-    return {"assignments": [{"ticket": a.ticket_id, "mechanic": a.mechanic_id} for a in assignments]}
+    return jsonify({
+        "assignments": [{"ticket": a.service_ticket_id, "mechanic": a.mechanic_id} for a in assignments]
+    }), 200
 
 @assignment_bp.route("/", methods=["POST"])
+@auth_required("admin", "mechanic")   # restrict creation
 @limiter.limit("15 per day")
-def create_assignment():
-    data = request.json
-    new_assignment = ServiceAssignment(**data)
-    db.session.add(new_assignment)
-    db.session.commit()
-    return {"message": "Assignment created"}, 201
-
-
-@assignment_bp.route("/", methods=["POST"])
-def create_assignment():
-    """POST /assignments - Create a new service assignment."""
+def create_assignment(user_id, role):
+    """POST /assignments - Create a new service assignment (admin/mechanic only)."""
     try:
         assignment_data = assignment_schema.load(request.json)
     except ValidationError as e:
@@ -53,7 +44,10 @@ def create_assignment():
 
     db.session.add(assignment_data)
     db.session.commit()
-    return jsonify(assignment_schema.dump(assignment_data)), 201
+    return jsonify({
+        "message": f"Assignment created by {role} (user {user_id})",
+        "assignment": assignment_schema.dump(assignment_data)
+    }), 201
 
 @assignment_bp.route("/", methods=["GET"])
 def get_assignments():
@@ -64,15 +58,16 @@ def get_assignments():
 
 @assignment_bp.route("/<int:assignment_id>", methods=["GET"])
 def get_assignment(assignment_id):
-    """GET /assignments/<int:assignment_id> - Get a single service assignment."""
+    """GET /assignments/<assignment_id> - Get a single service assignment."""
     assignment = db.session.get(ServiceAssignment, assignment_id)
     if assignment:
         return jsonify(assignment_schema.dump(assignment)), 200
     return jsonify({"error": "Service assignment not found."}), 404
 
 @assignment_bp.route("/<int:assignment_id>", methods=["PUT", "PATCH"])
-def update_assignment(assignment_id):
-    """PUT/PATCH /assignments/<int:assignment_id> - Update an existing service assignment."""
+@auth_required("admin", "mechanic")   # restrict updates
+def update_assignment(user_id, role, assignment_id):
+    """PUT/PATCH /assignments/<assignment_id> - Update an existing service assignment."""
     assignment = db.session.get(ServiceAssignment, assignment_id)
     if not assignment:
         return jsonify({"error": "Service assignment not found."}), 404
@@ -107,15 +102,19 @@ def update_assignment(assignment_id):
         return jsonify({"error": "This combination of ticket and mechanic is already assigned."}), 409
 
     db.session.commit()
-    return jsonify(assignment_schema.dump(updated_assignment)), 200
+    return jsonify({
+        "message": f"Assignment updated by {role} (user {user_id})",
+        "assignment": assignment_schema.dump(updated_assignment)
+    }), 200
 
 @assignment_bp.route("/<int:assignment_id>", methods=["DELETE"])
-def delete_assignment(assignment_id):
-    """DELETE /assignments/<int:assignment_id> - Delete a service assignment."""
+@auth_required("admin")   # only admins can delete
+def delete_assignment(user_id, role, assignment_id):
+    """DELETE /assignments/<assignment_id> - Delete a service assignment (admin only)."""
     assignment = db.session.get(ServiceAssignment, assignment_id)
     if not assignment:
         return jsonify({"error": "Service assignment not found."}), 404
 
     db.session.delete(assignment)
     db.session.commit()
-    return jsonify({"message": f"Service assignment {assignment_id} deleted successfully"}), 200
+    return jsonify({"message": f"Service assignment {assignment_id} deleted by admin (user {user_id})"}), 200

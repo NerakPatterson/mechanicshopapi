@@ -2,31 +2,12 @@ from flask import request, jsonify
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
-from extensions import db
-from models import Customer
-from .schemas import customer_schema, customers_schema
+from extensions import db, limiter
+from models import Customer, ServiceTicket, Vehicle
+from .schemas import customer_schema, customers_schema, login_schema
 from . import customer_bp
-from flask import Blueprint, request
-from extensions import limiter, cache, db
-from models import Customer
-
-customer_bp = Blueprint("customers", __name__)
-
-@customer_bp.route("/", methods=["GET"])
-@cache.cached(timeout=60)
-def list_customers():
-    customers = Customer.query.all()
-    return {"customers": [c.email for c in customers]}
-
-@customer_bp.route("/", methods=["POST"])
-@limiter.limit("10 per hour")
-def create_customer():
-    data = request.json
-    new_customer = Customer(**data)
-    db.session.add(new_customer)
-    db.session.commit()
-    return {"message": "Customer created"}, 201
-
+from utils.decorators import auth_required, token_required   # unified + token decorator
+from utils.auth import encode_token
 
 # Helper function to check for email conflict
 def _check_email_conflict(email, customer_id=None):
@@ -36,9 +17,59 @@ def _check_email_conflict(email, customer_id=None):
         return True
     return False
 
+@customer_bp.route("/login", methods=["POST"])
+def login():
+    """POST /login - Authenticate customer and return JWT token."""
+    try:
+        creds = login_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+
+    customer = db.session.query(Customer).filter_by(email=creds.email).first()
+    if not customer or customer.password != creds.password:  # ⚠️ hash check in production
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    token = encode_token(customer.id)
+    return jsonify({"token": token}), 200
+
+@customer_bp.route("/my-tickets", methods=["GET"])
+@token_required
+def my_tickets(customer_id):
+    """GET /my-tickets - Return tickets for the authenticated customer."""
+    tickets = (
+        db.session.query(ServiceTicket)
+        .join(Vehicle, Vehicle.id == ServiceTicket.vehicle_id)
+        .filter(Vehicle.customer_id == customer_id)
+        .all()
+    )
+    return jsonify([{
+        "id": t.id,
+        "date": t.date.isoformat(),
+        "description": t.description,
+        "status": t.status,
+        "cost": str(t.cost)
+    } for t in tickets]), 200
+
+@customer_bp.route("/", methods=["GET"])
+def get_customers():
+    """GET /customers - Paginated list of customers."""
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 10))
+
+    query = select(Customer)
+    customers = db.session.execute(query).scalars().all()
+
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated = customers[start:end]
+
+    return jsonify(customers_schema.dump(paginated)), 200
+
 @customer_bp.route("/", methods=["POST"])
-def create_customer():
-    """POST /customers - Create a new customer."""
+@auth_required("admin", "mechanic")   # admins and mechanics allowed
+@limiter.limit("10 per hour")
+def create_customer(user_id, role):
+    """POST /customers - Create a new customer (admin/mechanic only)."""
     try:
         new_customer = customer_schema.load(request.json)
     except ValidationError as e:
@@ -54,26 +85,23 @@ def create_customer():
         db.session.rollback()
         return jsonify({"error": "Database error during customer creation."}), 500
 
-    return customer_schema.jsonify(new_customer), 201
-
-@customer_bp.route("/", methods=["GET"])
-def get_customers():
-    """GET /customers - Get all customers."""
-    query = select(Customer)
-    customers = db.session.execute(query).scalars().all()
-    return customers_schema.jsonify(customers)
+    return jsonify({
+        "message": f"Customer created by {role} (user {user_id})",
+        "customer": customer_schema.dump(new_customer)
+    }), 201
 
 @customer_bp.route("/<int:customer_id>", methods=["GET"])
 def get_customer(customer_id):
-    """GET /customers/<int:customer_id> - Get a single customer."""
+    """GET /customers/<customer_id> - Get a single customer."""
     customer = db.session.get(Customer, customer_id)
     if customer:
-        return customer_schema.jsonify(customer), 200
+        return jsonify(customer_schema.dump(customer)), 200
     return jsonify({"error": "Customer not found."}), 404
 
 @customer_bp.route("/<int:customer_id>", methods=["PUT"])
-def update_customer(customer_id):
-    """PUT /customers/<int:customer_id> - Update an existing customer."""
+@auth_required("admin", "mechanic")   # restrict updates
+def update_customer(user_id, role, customer_id):
+    """PUT /customers/<customer_id> - Update an existing customer (admin/mechanic only)."""
     customer = db.session.get(Customer, customer_id)
     if not customer:
         return jsonify({"error": "Customer not found."}), 404
@@ -88,7 +116,7 @@ def update_customer(customer_id):
         return jsonify(e.messages), 400
 
     new_email = request.json.get("email")
-    if new_email is not None and new_email != customer.email:
+    if new_email and new_email != customer.email:
         if _check_email_conflict(new_email, customer_id):
             db.session.rollback()
             return jsonify({"error": "Email already associated with another account"}), 409
@@ -99,11 +127,15 @@ def update_customer(customer_id):
         db.session.rollback()
         return jsonify({"error": "Database integrity error during update."}), 500
 
-    return customer_schema.jsonify(updated_customer), 200
+    return jsonify({
+        "message": f"Customer updated by {role} (user {user_id})",
+        "customer": customer_schema.dump(updated_customer)
+    }), 200
 
 @customer_bp.route("/<int:customer_id>", methods=["DELETE"])
-def delete_customer(customer_id):
-    """DELETE /customers/<int:customer_id> - Delete a customer."""
+@auth_required("admin")   # only admins can delete
+def delete_customer(user_id, role, customer_id):
+    """DELETE /customers/<customer_id> - Delete a customer (admin only)."""
     customer = db.session.get(Customer, customer_id)
     if not customer:
         return jsonify({"error": "Customer not found."}), 404
@@ -115,4 +147,4 @@ def delete_customer(customer_id):
         db.session.rollback()
         return jsonify({"error": "Cannot delete customer due to existing associated records."}), 409
 
-    return jsonify({"message": f"Customer {customer_id} deleted successfully"}), 200
+    return jsonify({"message": f"Customer {customer_id} deleted by admin (user {user_id})"}), 200

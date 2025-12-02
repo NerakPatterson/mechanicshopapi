@@ -2,6 +2,7 @@ from flask import Flask
 from dotenv import load_dotenv
 import os
 from extensions import db, ma, migrate, limiter, cache
+from app.inventory import inventory_bp
 
 
 def create_app():
@@ -23,17 +24,21 @@ def create_app():
     limiter.init_app(app)
 
     # Import and register blueprints
+    from app.users import user_bp
     from app.mechanics import mechanic_bp
     from app.customers import customer_bp
     from app.vehicles import vehicle_bp
     from app.service_tickets import ticket_bp
     from app.assignments import assignment_bp
+    from app.inventory import inventory_bp   # <-- new import
 
+    app.register_blueprint(user_bp, url_prefix="/users")
     app.register_blueprint(mechanic_bp, url_prefix="/mechanics")
     app.register_blueprint(customer_bp, url_prefix="/customers")
     app.register_blueprint(vehicle_bp, url_prefix="/vehicles")
     app.register_blueprint(ticket_bp, url_prefix="/tickets")
     app.register_blueprint(assignment_bp, url_prefix="/assignments")
+    app.register_blueprint(inventory_bp, url_prefix="/inventory")
 
     # Create tables if they don't exist
     with app.app_context():
