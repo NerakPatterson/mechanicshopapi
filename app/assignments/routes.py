@@ -1,5 +1,6 @@
 from flask import request, jsonify
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 from extensions import db, limiter, cache
 from models import ServiceAssignment, ServiceTicket, Mechanic
@@ -9,12 +10,11 @@ from utils.decorators import auth_required   # unified decorator
 
 @assignment_bp.route("/", methods=["GET"])
 @cache.cached(timeout=45)
-def list_assignments():
-    """GET /assignments - Cached list of assignments (ticket + mechanic IDs)."""
-    assignments = ServiceAssignment.query.all()
-    return jsonify({
-        "assignments": [{"ticket": a.service_ticket_id, "mechanic": a.mechanic_id} for a in assignments]
-    }), 200
+def get_assignments():
+    """GET /assignments - Cached list of all service assignments."""
+    query = select(ServiceAssignment)
+    assignments = db.session.execute(query).scalars().all()
+    return jsonify(assignments_schema.dump(assignments)), 200
 
 @assignment_bp.route("/", methods=["POST"])
 @auth_required("admin", "mechanic")   # restrict creation
@@ -43,18 +43,16 @@ def create_assignment(user_id, role):
         return jsonify({"error": "This service ticket is already assigned to this mechanic."}), 409
 
     db.session.add(assignment_data)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during assignment creation"}), 500
+
     return jsonify({
         "message": f"Assignment created by {role} (user {user_id})",
         "assignment": assignment_schema.dump(assignment_data)
     }), 201
-
-@assignment_bp.route("/", methods=["GET"])
-def get_assignments():
-    """GET /assignments - Get all service assignments."""
-    query = select(ServiceAssignment)
-    assignments = db.session.execute(query).scalars().all()
-    return jsonify(assignments_schema.dump(assignments)), 200
 
 @assignment_bp.route("/<int:assignment_id>", methods=["GET"])
 def get_assignment(assignment_id):
@@ -101,7 +99,12 @@ def update_assignment(user_id, role, assignment_id):
         db.session.rollback()
         return jsonify({"error": "This combination of ticket and mechanic is already assigned."}), 409
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during update"}), 500
+
     return jsonify({
         "message": f"Assignment updated by {role} (user {user_id})",
         "assignment": assignment_schema.dump(updated_assignment)
@@ -116,5 +119,10 @@ def delete_assignment(user_id, role, assignment_id):
         return jsonify({"error": "Service assignment not found."}), 404
 
     db.session.delete(assignment)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during deletion"}), 500
+
     return jsonify({"message": f"Service assignment {assignment_id} deleted by admin (user {user_id})"}), 200

@@ -3,49 +3,121 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 from extensions import db
-from models import User, Role
+from models import User
 from .schemas import user_schema, users_schema, login_schema
 from . import user_bp
 from utils.auth import encode_token
-from utils.decorators import token_required, auth_required
-from werkzeug.security import check_password_hash
+from utils.decorators import auth_required
+
+# REGISTER USER
+
+@user_bp.route("/register", methods=["POST"])
+def register():
+    """POST /users/register - Create a new user."""
+    data = request.json or {}
+
+    email = data.get("email")
+    password = data.get("password")
+    role = data.get("role")
+
+    if not email or not password or not role:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    if role not in ["admin", "mechanic", "customer"]:
+        return jsonify({"error": "Invalid role"}), 400
+
+    user = User(email=email, role=role)
+    user.set_password(password)
+
+    db.session.add(user)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Email already exists"}), 400
+
+    return jsonify(user_schema.dump(user)), 201
+
+# LOGIN USER
 
 @user_bp.route("/login", methods=["POST"])
 def login():
-    """POST /users/login - Authenticate staff (admin/mechanic) and return JWT token."""
+    """POST /users/login - Authenticate and return JWT."""
     try:
         creds = login_schema.load(request.json)
     except ValidationError as e:
         return jsonify(e.messages), 400
 
-    user = db.session.query(User).filter_by(email=creds.email).first()
-    if not user or not check_password_hash(user.password, creds.password):
+    user = db.session.query(User).filter_by(email=creds["email"]).first()
+    if not user or not user.check_password(creds["password"]):
         return jsonify({"error": "Invalid credentials"}), 401
 
-    # Attach role name to token payload
-    role_name = user.role.role_name if user.role else None
-    token = encode_token(user.id, role=role_name)
-    return jsonify({"token": token, "role": role_name}), 200
+    token = encode_token(user.id, role=user.role)
+
+    return jsonify({
+        "token": token,
+        "role": user.role
+    }), 200
+
+# GET ALL USERS (ADMIN ONLY)
 
 @user_bp.route("/", methods=["GET"])
-@auth_required("admin")   # only admins can list all users
-def get_users(user_id, role):
+@auth_required("admin")
+def get_users(requester_id, role):
     """GET /users - List all users (admin only)."""
-    query = select(User)
-    users = db.session.execute(query).scalars().all()
+    users = db.session.execute(select(User)).scalars().all()
     return jsonify(users_schema.dump(users)), 200
+
+# GET SINGLE USER (ADMIN + MECHANIC)
 
 @user_bp.route("/<int:user_id>", methods=["GET"])
 @auth_required("admin", "mechanic")
 def get_user(requester_id, role, user_id):
-    """GET /users/<id> - Get a single user (admin/mechanic)."""
+    """GET /users/<id> - Get a single user."""
     user = db.session.get(User, user_id)
-    if user:
-        return jsonify(user_schema.dump(user)), 200
-    return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
+    return jsonify(user_schema.dump(user)), 200
+
+#  UPDATE USER (ADMIN ONLY) — NEW
+
+@user_bp.route("/<int:user_id>", methods=["PUT"])
+@auth_required("admin")
+def update_user(requester_id, role, user_id):
+    """PUT /users/<id> - Update a user (admin only)."""
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.json or {}
+
+    # Partial updates allowed
+    if "email" in data:
+        user.email = data["email"]
+
+    if "role" in data:
+        if data["role"] not in ["admin", "mechanic", "customer"]:
+            return jsonify({"error": "Invalid role"}), 400
+        user.role = data["role"]
+
+    if "password" in data:
+        user.set_password(data["password"])
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Email already exists"}), 400
+
+    return jsonify({
+        "message": f"User {user_id} updated by admin (user {requester_id})",
+        "user": user_schema.dump(user)
+    }), 200
+
+# DELETE USER (ADMIN ONLY)
 @user_bp.route("/<int:user_id>", methods=["DELETE"])
-@auth_required("admin")   # only admins can delete
+@auth_required("admin")
 def delete_user(requester_id, role, user_id):
     """DELETE /users/<id> - Delete a user (admin only)."""
     user = db.session.get(User, user_id)
@@ -59,4 +131,6 @@ def delete_user(requester_id, role, user_id):
         db.session.rollback()
         return jsonify({"error": "Database error during deletion."}), 500
 
-    return jsonify({"message": f"User {user_id} deleted by admin (user {requester_id})"}), 200
+    return jsonify({
+        "message": f"User {user_id} deleted by admin (user {requester_id})"
+    }), 200

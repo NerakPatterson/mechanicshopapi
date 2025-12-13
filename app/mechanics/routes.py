@@ -1,5 +1,6 @@
 from flask import request, jsonify
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 from extensions import db, limiter, cache
 from models import Mechanic, ServiceAssignment
@@ -7,6 +8,8 @@ from .schemas import mechanic_schema, mechanics_schema, mechanic_update_schema
 from . import mechanic_bp
 from utils.decorators import auth_required   # unified decorator
 
+
+# GET ranked mechanics
 @mechanic_bp.route("/ranked", methods=["GET"])
 def ranked_mechanics():
     """GET /mechanics/ranked - List mechanics ordered by ticket count."""
@@ -23,6 +26,8 @@ def ranked_mechanics():
         for mech, count in results
     ]), 200
 
+
+# GET all mechanics
 @mechanic_bp.route("/", methods=["GET"])
 @cache.cached(timeout=60)
 def get_mechanics():
@@ -31,10 +36,12 @@ def get_mechanics():
     mechanics = db.session.execute(query).scalars().all()
     return jsonify(mechanics_schema.dump(mechanics)), 200
 
+
+# CREATE mechanic (admin only)
 @mechanic_bp.route("/", methods=["POST"])
-@auth_required("admin")   # only admins allowed
+@auth_required("admin")
 @limiter.limit("5 per hour")
-def create_mechanic(user_id):
+def create_mechanic(user_id, role):
     """POST /mechanics - Create a new mechanic (admin only)."""
     try:
         mechanic_data = mechanic_schema.load(request.json)
@@ -47,13 +54,19 @@ def create_mechanic(user_id):
         return jsonify({"error": "Email already associated with an existing mechanic"}), 409
 
     db.session.add(mechanic_data)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during mechanic creation"}), 500
 
     return jsonify({
         "message": f"Mechanic created by admin (user {user_id})",
         "mechanic": mechanic_schema.dump(mechanic_data)
     }), 201
 
+
+# GET single mechanic
 @mechanic_bp.route("/<int:mechanic_id>", methods=["GET"])
 def get_mechanic(mechanic_id):
     """GET /mechanics/<mechanic_id> - Get a single mechanic."""
@@ -62,8 +75,10 @@ def get_mechanic(mechanic_id):
         return jsonify(mechanic_schema.dump(mechanic)), 200
     return jsonify({"error": "Mechanic not found."}), 404
 
+
+# UPDATE mechanic (admin only)
 @mechanic_bp.route("/<int:mechanic_id>", methods=["PUT"])
-@auth_required("admin")   # only admins can update
+@auth_required("admin")
 def update_mechanic(user_id, role, mechanic_id):
     """PUT /mechanics/<mechanic_id> - Update an existing mechanic (admin only)."""
     mechanic = db.session.get(Mechanic, mechanic_id)
@@ -85,14 +100,21 @@ def update_mechanic(user_id, role, mechanic_id):
     for key, value in mechanic_data_dict.items():
         setattr(mechanic, key, value)
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during update"}), 500
+
     return jsonify({
         "message": f"Mechanic updated by admin (user {user_id})",
         "mechanic": mechanic_schema.dump(mechanic)
     }), 200
 
+
+# DELETE mechanic (admin only)
 @mechanic_bp.route("/<int:mechanic_id>", methods=["DELETE"])
-@auth_required("admin")   # only admins can delete
+@auth_required("admin")
 def delete_mechanic(user_id, role, mechanic_id):
     """DELETE /mechanics/<mechanic_id> - Delete a mechanic (admin only)."""
     mechanic = db.session.get(Mechanic, mechanic_id)
@@ -100,5 +122,10 @@ def delete_mechanic(user_id, role, mechanic_id):
         return jsonify({"error": "Mechanic not found."}), 404
 
     db.session.delete(mechanic)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during deletion"}), 500
+
     return jsonify({"message": f"Mechanic {mechanic_id} deleted by admin (user {user_id})"}), 200

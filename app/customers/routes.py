@@ -4,10 +4,9 @@ from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 from extensions import db, limiter
 from models import Customer, ServiceTicket, Vehicle
-from .schemas import customer_schema, customers_schema, login_schema
+from .schemas import customer_schema, customers_schema
 from . import customer_bp
 from utils.decorators import auth_required, token_required   # unified + token decorator
-from utils.auth import encode_token
 
 # Helper function to check for email conflict
 def _check_email_conflict(email, customer_id=None):
@@ -16,21 +15,6 @@ def _check_email_conflict(email, customer_id=None):
     if existing_customer and (customer_id is None or existing_customer.id != customer_id):
         return True
     return False
-
-@customer_bp.route("/login", methods=["POST"])
-def login():
-    """POST /login - Authenticate customer and return JWT token."""
-    try:
-        creds = login_schema.load(request.json)
-    except ValidationError as e:
-        return jsonify(e.messages), 400
-
-    customer = db.session.query(Customer).filter_by(email=creds.email).first()
-    if not customer or customer.password != creds.password:  # ⚠️ hash check in production
-        return jsonify({"error": "Invalid credentials"}), 401
-
-    token = encode_token(customer.id)
-    return jsonify({"token": token}), 200
 
 @customer_bp.route("/my-tickets", methods=["GET"])
 @token_required

@@ -1,5 +1,6 @@
 from flask import request, jsonify
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 from extensions import db, limiter, cache
 from models import Vehicle
@@ -32,7 +33,12 @@ def create_vehicle(user_id, role):
             return jsonify({"error": "VIN already registered."}), 409
 
     db.session.add(vehicle_data)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during vehicle creation."}), 500
+
     return jsonify({
         "message": f"Vehicle created by {role} (user {user_id})",
         "vehicle": vehicle_schema.dump(vehicle_data)
@@ -73,7 +79,12 @@ def update_vehicle(user_id, role, vehicle_id):
             db.session.rollback()
             return jsonify({"error": "VIN already associated with another vehicle"}), 409
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database integrity error during update."}), 500
+
     return jsonify({
         "message": f"Vehicle updated by {role} (user {user_id})",
         "vehicle": vehicle_schema.dump(updated_vehicle)
@@ -88,5 +99,10 @@ def delete_vehicle(user_id, role, vehicle_id):
         return jsonify({"error": "Vehicle not found."}), 404
 
     db.session.delete(vehicle)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during deletion."}), 500
+
     return jsonify({"message": f"Vehicle {vehicle_id} deleted by admin (user {user_id})"}), 200

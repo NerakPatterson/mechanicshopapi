@@ -1,4 +1,5 @@
 from flask import request, jsonify
+from sqlalchemy.exc import IntegrityError
 from extensions import db
 from models import Inventory
 from . import inventory_bp
@@ -16,10 +17,18 @@ def get_inventory(user_id, role):
 @inventory_bp.route("/", methods=["POST"])
 @auth_required("admin")
 def add_inventory(user_id, role):
-    data = request.json
-    item = Inventory(name=data["name"], price=data["price"])
+    try:
+        item = inventory_schema.load(request.json)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
     db.session.add(item)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during inventory creation"}), 500
+
     return jsonify(inventory_schema.dump(item)), 201
 
 # UPDATE existing inventory item
@@ -29,11 +38,19 @@ def update_inventory(user_id, role, item_id):
     item = db.session.get(Inventory, item_id)
     if not item:
         return jsonify({"error": "Item not found"}), 404
-    data = request.json
-    item.name = data.get("name", item.name)
-    item.price = data.get("price", item.price)
-    db.session.commit()
-    return jsonify(inventory_schema.dump(item)), 200
+
+    try:
+        updated_item = inventory_schema.load(request.json, instance=item, partial=True)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during update"}), 500
+
+    return jsonify(inventory_schema.dump(updated_item)), 200
 
 # DELETE inventory item
 @inventory_bp.route("/<int:item_id>", methods=["DELETE"])
@@ -42,6 +59,12 @@ def delete_inventory(user_id, role, item_id):
     item = db.session.get(Inventory, item_id)
     if not item:
         return jsonify({"error": "Item not found"}), 404
+
     db.session.delete(item)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Database error during deletion"}), 500
+
     return jsonify({"message": f"Inventory item {item_id} deleted"}), 200

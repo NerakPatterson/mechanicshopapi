@@ -1,27 +1,25 @@
 # app/mechanics/schemas.py
 from extensions import ma
 from models import Mechanic
+from marshmallow import fields
 
 class MechanicSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Mechanic
-        include_fk = True
         load_instance = True
+        include_fk = True
+        exclude = ("assignments",)  # avoid nesting service assignments unless needed
 
-# Full schema for create/read
 mechanic_schema = MechanicSchema()
 mechanics_schema = MechanicSchema(many=True)
 
-# Update schema: allow partial updates
-class MechanicUpdateSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Mechanic
-        load_instance = True
 
-    name = ma.auto_field()
-    email = ma.auto_field()
-    phone = ma.auto_field()
-    address = ma.auto_field()
-    salary = ma.auto_field()
+# Proper partial update schema
+class MechanicUpdateSchema(ma.Schema):
+    name = fields.String()
+    email = fields.Email()
+    phone = fields.String()
+    address = fields.String()
+    salary = fields.Decimal(as_string=True)
 
 mechanic_update_schema = MechanicUpdateSchema()

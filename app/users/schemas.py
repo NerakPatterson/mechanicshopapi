@@ -7,17 +7,14 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
         model = User
         include_fk = True
         load_instance = True
+        exclude = ("password_hash",)  # don’t expose password hashes
 
 user_schema = UserSchema()
 users_schema = UserSchema(many=True)
 
-# Login schema: only email + password
-class LoginSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = User
-        load_instance = True
-
-    email = ma.auto_field()
-    password = ma.auto_field()
+# Login schema: only email + password (raw input, not DB fields)
+class LoginSchema(ma.Schema):
+    email = ma.Str(required=True)
+    password = ma.Str(required=True)
 
 login_schema = LoginSchema()

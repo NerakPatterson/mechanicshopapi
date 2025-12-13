@@ -2,16 +2,15 @@ from flask import Flask
 from dotenv import load_dotenv
 import os
 from extensions import db, ma, migrate, limiter, cache
-from app.inventory import inventory_bp
-
 
 def create_app():
     # Load environment variables
     load_dotenv()
 
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret')
 
     # Optional cache config
     app.config['CACHE_TYPE'] = 'SimpleCache'  # or 'RedisCache', etc.
@@ -30,7 +29,7 @@ def create_app():
     from app.vehicles import vehicle_bp
     from app.service_tickets import ticket_bp
     from app.assignments import assignment_bp
-    from app.inventory import inventory_bp   # <-- new import
+    from app.inventory import inventory_bp
 
     app.register_blueprint(user_bp, url_prefix="/users")
     app.register_blueprint(mechanic_bp, url_prefix="/mechanics")
@@ -40,8 +39,9 @@ def create_app():
     app.register_blueprint(assignment_bp, url_prefix="/assignments")
     app.register_blueprint(inventory_bp, url_prefix="/inventory")
 
-    # Create tables if they don't exist
+    # Import models inside app context so SQLAlchemy sees them
     with app.app_context():
+        from models import User, Mechanic, Customer, Vehicle, ServiceTicket, ServiceAssignment, Inventory
         db.create_all()
 
     return app

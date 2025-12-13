@@ -10,14 +10,3 @@ class CustomerSchema(ma.SQLAlchemyAutoSchema):
 
 customer_schema = CustomerSchema()
 customers_schema = CustomerSchema(many=True)
-
-# Login schema: only email + password
-class LoginSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Customer
-        load_instance = True
-
-    email = ma.auto_field()
-    password = ma.auto_field()
-
-login_schema = LoginSchema()

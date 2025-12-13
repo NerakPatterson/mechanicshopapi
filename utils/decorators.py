@@ -1,8 +1,6 @@
-# utils/decorators.py
 from functools import wraps
 from flask import request, jsonify
 from utils.auth import decode_token
-
 
 def auth_required(*roles):
     """Decorator to enforce role-based access control for staff/admin users."""
@@ -14,10 +12,11 @@ def auth_required(*roles):
                 return jsonify({"error": "Missing or invalid token"}), 401
 
             token = auth_header.split(" ", 1)[1]
-            try:
-                payload = decode_token(token)
-            except Exception:
-                return jsonify({"error": "Invalid or expired token"}), 401
+            payload = decode_token(token)
+
+            # Handle decode errors
+            if isinstance(payload, dict) and "error" in payload:
+                return jsonify(payload), 401
 
             user_id = payload.get("sub")
             role = payload.get("role")
@@ -37,10 +36,11 @@ def token_required(fn):
             return jsonify({"error": "Missing or invalid token"}), 401
 
         token = auth_header.split(" ", 1)[1]
-        try:
-            payload = decode_token(token)
-        except Exception:
-            return jsonify({"error": "Invalid or expired token"}), 401
+        payload = decode_token(token)
+
+        # Handle decode errors
+        if isinstance(payload, dict) and "error" in payload:
+            return jsonify(payload), 401
 
         customer_id = payload.get("sub")
         return fn(customer_id, *args, **kwargs)

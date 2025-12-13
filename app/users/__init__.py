@@ -4,4 +4,4 @@ from flask import Blueprint
 user_bp = Blueprint("users", __name__, url_prefix="/users")
 
 # Import routes after blueprint is defined
-from . import routes  # imported for side effects
+from . import routes
