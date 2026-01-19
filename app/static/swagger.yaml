@@ -1,0 +1,1130 @@
+swagger: "2.0"
+
+info:
+  title: "Mechanic Shop API"
+  description: "API documentation for the mechanic shop management system"
+  version: "1.0.0"
+
+host: "127.0.0.1:5000"
+schemes:
+  - "http"
+
+consumes:
+  - "application/json"
+produces:
+  - "application/json"
+
+securityDefinitions:
+  bearerAuth:
+    type: apiKey
+    name: Authorization
+    in: header
+
+tags:
+  - name: Users
+  - name: Mechanics
+  - name: Customers
+  - name: Vehicles
+  - name: Service Tickets
+  - name: Assignments
+  - name: Inventory
+
+paths:
+
+  # USERS
+  /users/register:
+    post:
+      tags: [Users]
+      summary: "Register a new user"
+      description: "Creates a new user account."
+      parameters:
+        - in: body
+          name: user
+          required: true
+          schema:
+            $ref: "#/definitions/UserRegisterPayload"
+      responses:
+        201:
+          description: "User registered"
+          schema:
+            $ref: "#/definitions/User"
+        400:
+          description: "Missing fields or email exists"
+
+  /users/login:
+    post:
+      tags: [Users]
+      summary: "Login user"
+      description: "Authenticates a user and returns a JWT token."
+      parameters:
+        - in: body
+          name: credentials
+          required: true
+          schema:
+            $ref: "#/definitions/UserLoginPayload"
+      responses:
+        200:
+          description: "Login successful"
+          schema:
+            $ref: "#/definitions/UserLoginResponse"
+        400:
+          description: "Validation error"
+        401:
+          description: "Invalid credentials"
+
+  /users:
+    get:
+      tags: [Users]
+      summary: "Get all users"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: "List of users"
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/User"
+
+  /users/{user_id}:
+    get:
+      tags: [Users]
+      summary: "Get a single user"
+      description: "Admins and mechanics can retrieve a user."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "User found"
+          schema:
+            $ref: "#/definitions/User"
+        404:
+          description: "User not found"
+
+    put:
+      tags: [Users]
+      summary: "Update a user"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          type: integer
+        - in: body
+          name: user
+          required: true
+          schema:
+            $ref: "#/definitions/UserUpdatePayload"
+      responses:
+        200:
+          description: "User updated"
+          schema:
+            $ref: "#/definitions/UserUpdateResponse"
+        400:
+          description: "Invalid role or email exists"
+        404:
+          description: "User not found"
+
+    delete:
+      tags: [Users]
+      summary: "Delete a user"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "User deleted"
+          schema:
+            $ref: "#/definitions/UserDeleteResponse"
+        404:
+          description: "User not found"
+
+  # MECHANICS
+  /mechanics/ranked:
+    get:
+      tags: [Mechanics]
+      summary: "Get ranked mechanics"
+      description: "Returns mechanics ordered by number of assigned tickets."
+      responses:
+        200:
+          description: "Ranked mechanics"
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/MechanicRanked"
+
+  /mechanics:
+    get:
+      tags: [Mechanics]
+      summary: "Get all mechanics"
+      description: "Returns all mechanics."
+      responses:
+        200:
+          description: "List of mechanics"
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/Mechanic"
+
+    post:
+      tags: [Mechanics]
+      summary: "Create a mechanic"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: mechanic
+          required: true
+          schema:
+            $ref: "#/definitions/MechanicCreatePayload"
+      responses:
+        201:
+          description: "Mechanic created"
+          schema:
+            $ref: "#/definitions/MechanicCreateResponse"
+        400:
+          description: "Validation error"
+        409:
+          description: "Email exists"
+
+  /mechanics/{mechanic_id}:
+    get:
+      tags: [Mechanics]
+      summary: "Get a mechanic"
+      description: "Retrieve a mechanic by ID."
+      parameters:
+        - in: path
+          name: mechanic_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Mechanic found"
+          schema:
+            $ref: "#/definitions/Mechanic"
+        404:
+          description: "Mechanic not found"
+
+    put:
+      tags: [Mechanics]
+      summary: "Update a mechanic"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: mechanic_id
+          required: true
+          type: integer
+        - in: body
+          name: mechanic
+          required: true
+          schema:
+            $ref: "#/definitions/MechanicUpdatePayload"
+      responses:
+        200:
+          description: "Mechanic updated"
+          schema:
+            $ref: "#/definitions/MechanicUpdateResponse"
+        400:
+          description: "Validation error"
+        404:
+          description: "Mechanic not found"
+        409:
+          description: "Email exists"
+
+    delete:
+      tags: [Mechanics]
+      summary: "Delete a mechanic"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: mechanic_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Mechanic deleted"
+          schema:
+            $ref: "#/definitions/MechanicDeleteResponse"
+        404:
+          description: "Mechanic not found"
+
+  # CUSTOMERS
+  /customers:
+    get:
+      tags: [Customers]
+      summary: "Get paginated customers"
+      description: "Returns a paginated list of customers."
+      parameters:
+        - in: query
+          name: page
+          type: integer
+        - in: query
+          name: per_page
+          type: integer
+      responses:
+        200:
+          description: "List of customers"
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/Customer"
+
+    post:
+      tags: [Customers]
+      summary: "Create a customer"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: customer
+          required: true
+          schema:
+            $ref: "#/definitions/CustomerCreatePayload"
+      responses:
+        201:
+          description: "Customer created"
+          schema:
+            $ref: "#/definitions/CustomerCreateResponse"
+        400:
+          description: "Validation error"
+        409:
+          description: "Email exists"
+
+  /customers/my-tickets:
+    get:
+      tags: [Customers]
+      summary: "Get tickets for authenticated customer"
+      description: "Returns all tickets belonging to the logged-in customer."
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: "List of tickets"
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/CustomerTicket"
+
+  /customers/{customer_id}:
+    get:
+      tags: [Customers]
+      summary: "Get a customer"
+      description: "Retrieve a customer by ID."
+      parameters:
+        - in: path
+          name: customer_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Customer found"
+          schema:
+            $ref: "#/definitions/Customer"
+        404:
+          description: "Customer not found"
+
+    put:
+      tags: [Customers]
+      summary: "Update a customer"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: customer_id
+          required: true
+          type: integer
+        - in: body
+          name: customer
+          required: true
+          schema:
+            $ref: "#/definitions/CustomerUpdatePayload"
+      responses:
+        200:
+          description: "Customer updated"
+          schema:
+            $ref: "#/definitions/CustomerUpdateResponse"
+        400:
+          description: "Validation error"
+        404:
+          description: "Customer not found"
+        409:
+          description: "Email exists"
+
+    delete:
+      tags: [Customers]
+      summary: "Delete a customer"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: customer_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Customer deleted"
+          schema:
+            $ref: "#/definitions/CustomerDeleteResponse"
+        404:
+          description: "Customer not found"
+
+  # VEHICLES
+  /vehicles:
+    get:
+      tags: [Vehicles]
+      summary: "Get all vehicles"
+      description: "Returns all vehicles."
+      responses:
+        200:
+          description: "List of vehicles"
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/Vehicle"
+
+    post:
+      tags: [Vehicles]
+      summary: "Create a vehicle"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: vehicle
+          required: true
+          schema:
+            $ref: "#/definitions/VehicleCreatePayload"
+      responses:
+        201:
+          description: "Vehicle created"
+          schema:
+            $ref: "#/definitions/VehicleCreateResponse"
+        400:
+          description: "Validation error"
+        409:
+          description: "VIN exists"
+
+  /vehicles/{vehicle_id}:
+    get:
+      tags: [Vehicles]
+      summary: "Get a vehicle"
+      description: "Retrieve a vehicle by ID."
+      parameters:
+        - in: path
+          name: vehicle_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Vehicle found"
+          schema:
+            $ref: "#/definitions/Vehicle"
+        404:
+          description: "Vehicle not found"
+
+    put:
+      tags: [Vehicles]
+      summary: "Update a vehicle"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_id
+          required: true
+          type: integer
+        - in: body
+          name: vehicle
+          required: true
+          schema:
+            $ref: "#/definitions/VehicleUpdatePayload"
+      responses:
+        200:
+          description: "Vehicle updated"
+          schema:
+            $ref: "#/definitions/VehicleUpdateResponse"
+        400:
+          description: "Validation error"
+        404:
+          description: "Vehicle not found"
+        409:
+          description: "VIN exists"
+
+    delete:
+      tags: [Vehicles]
+      summary: "Delete a vehicle"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Vehicle deleted"
+          schema:
+            $ref: "#/definitions/VehicleDeleteResponse"
+        404:
+          description: "Vehicle not found"
+
+  # SERVICE TICKETS
+  /tickets:
+    get:
+      tags: [Service Tickets]
+      summary: "Get all service tickets"
+      description: "Returns all service tickets."
+      responses:
+        200:
+          description: "List of tickets"
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/ServiceTicket"
+
+    post:
+      tags: [Service Tickets]
+      summary: "Create a service ticket"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: ticket
+          required: true
+          schema:
+            $ref: "#/definitions/TicketCreatePayload"
+      responses:
+        201:
+          description: "Ticket created"
+          schema:
+            $ref: "#/definitions/TicketCreateResponse"
+        400:
+          description: "Validation error"
+
+  /tickets/{ticket_id}:
+    get:
+      tags: [Service Tickets]
+      summary: "Get a service ticket"
+      description: "Retrieve a ticket by ID."
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Ticket found"
+          schema:
+            $ref: "#/definitions/ServiceTicket"
+        404:
+          description: "Ticket not found"
+
+    put:
+      tags: [Service Tickets]
+      summary: "Update a service ticket"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          type: integer
+        - in: body
+          name: ticket
+          required: true
+          schema:
+            $ref: "#/definitions/TicketUpdatePayload"
+      responses:
+        200:
+          description: "Ticket updated"
+          schema:
+            $ref: "#/definitions/TicketUpdateResponse"
+        400:
+          description: "Validation error"
+        404:
+          description: "Ticket not found"
+
+    delete:
+      tags: [Service Tickets]
+      summary: "Delete a service ticket"
+      description: "Admin only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Ticket deleted"
+          schema:
+            $ref: "#/definitions/TicketDeleteResponse"
+        404:
+          description: "Ticket not found"
+
+  /tickets/{ticket_id}/add_part:
+    post:
+      tags: [Service Tickets]
+      summary: "Add a part to a ticket"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          type: integer
+        - in: body
+          name: part
+          required: true
+          schema:
+            $ref: "#/definitions/AddPartPayload"
+      responses:
+        200:
+          description: "Part added"
+          schema:
+            $ref: "#/definitions/AddPartResponse"
+        404:
+          description: "Ticket or part not found"
+
+  /tickets/{ticket_id}/edit:
+    put:
+      tags: [Service Tickets]
+      summary: "Add or remove mechanics from a ticket"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          type: integer
+        - in: query
+          name: add_ids
+          type: array
+          items:
+            type: integer
+        - in: query
+          name: remove_ids
+          type: array
+          items:
+            type: integer
+      responses:
+        200:
+          description: "Mechanics updated"
+          schema:
+            $ref: "#/definitions/EditMechanicsResponse"
+        404:
+          description: "Ticket not found"
+
+  # ASSIGNMENTS
+  /assignments:
+    get:
+      tags: [Assignments]
+      summary: "Get all assignments"
+      description: "Returns all service assignments."
+      responses:
+        200:
+          description: "List of assignments"
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/ServiceAssignment"
+
+    post:
+      tags: [Assignments]
+      summary: "Create an assignment"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: assignment
+          required: true
+          schema:
+            $ref: "#/definitions/AssignmentCreatePayload"
+      responses:
+        201:
+          description: "Assignment created"
+          schema:
+            $ref: "#/definitions/AssignmentCreateResponse"
+        400:
+          description: "Validation error"
+        404:
+          description: "Ticket or mechanic not found"
+        409:
+          description: "Assignment exists"
+
+  /assignments/{assignment_id}:
+    get:
+      tags: [Assignments]
+      summary: "Get an assignment"
+      description: "Retrieve an assignment by ID."
+      parameters:
+        - in: path
+          name: assignment_id
+          required: true
+          type: integer
+      responses:
+        200:
+          description: "Assignment found"
+          schema:
+            $ref: "#/definitions/ServiceAssignment"
+        404:
+          description: "Assignment not found"
+
+    put:
+      tags: [Assignments]
+      summary: "Update an assignment"
+      description: "Admins and mechanics only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: assignment_id
+          required: true
+          type: integer
+        - in: body
+          name: assignment
+          required: true
+          schema:
+            $ref: "#/definitions/AssignmentUpdatePayload"
+      responses:
+        200:
+          description: "Assignment updated"
+          schema:
+            $ref: "#/definitions/AssignmentUpdateResponse"
+        400:
+          description: "Validation error"
+        404:
+          description: "Assignment not found"
+
+definitions:
+  # USERS
+  User:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      email:
+        type: string
+      role:
+        type: string
+        enum: [admin, mechanic, customer]
+      created_at:
+        type: string
+      updated_at:
+        type: string
+
+  UserRegisterPayload:
+    type: object
+    required: [name, email, password]
+    properties:
+      name:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+
+  UserLoginPayload:
+    type: object
+    required: [email, password]
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+
+  UserLoginResponse:
+    type: object
+    properties:
+      token:
+        type: string
+      user:
+        $ref: "#/definitions/User"
+
+  UserUpdatePayload:
+    type: object
+    properties:
+      name:
+        type: string
+      email:
+        type: string
+      role:
+        type: string
+        enum: [admin, mechanic, customer]
+
+  UserUpdateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      user:
+        $ref: "#/definitions/User"
+
+  UserDeleteResponse:
+    type: object
+    properties:
+      message:
+        type: string
+
+  # MECHANICS
+  Mechanic:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      email:
+        type: string
+      certifications:
+        type: array
+        items:
+          type: string
+      created_at:
+        type: string
+
+  MechanicRanked:
+    type: object
+    properties:
+      mechanic:
+        $ref: "#/definitions/Mechanic"
+      assigned_ticket_count:
+        type: integer
+
+  MechanicCreatePayload:
+    type: object
+    required: [name, email]
+    properties:
+      name:
+        type: string
+      email:
+        type: string
+      certifications:
+        type: array
+        items:
+          type: string
+
+  MechanicCreateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      mechanic:
+        $ref: "#/definitions/Mechanic"
+
+  MechanicUpdatePayload:
+    type: object
+    properties:
+      name:
+        type: string
+      email:
+        type: string
+      certifications:
+        type: array
+        items:
+          type: string
+
+  MechanicUpdateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      mechanic:
+        $ref: "#/definitions/Mechanic"
+
+  MechanicDeleteResponse:
+    type: object
+    properties:
+      message:
+        type: string
+
+  # CUSTOMERS
+  Customer:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      email:
+        type: string
+      phone:
+        type: string
+      created_at:
+        type: string
+
+  CustomerTicket:
+    type: object
+    properties:
+      ticket_id:
+        type: integer
+      vehicle_id:
+        type: integer
+      status:
+        type: string
+      description:
+        type: string
+
+  CustomerCreatePayload:
+    type: object
+    required: [name, email]
+    properties:
+      name:
+        type: string
+      email:
+        type: string
+      phone:
+        type: string
+
+  CustomerCreateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      customer:
+        $ref: "#/definitions/Customer"
+
+  CustomerUpdatePayload:
+    type: object
+    properties:
+      name:
+        type: string
+      email:
+        type: string
+      phone:
+        type: string
+
+  CustomerUpdateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      customer:
+        $ref: "#/definitions/Customer"
+
+  CustomerDeleteResponse:
+    type: object
+    properties:
+      message:
+        type: string
+
+  # VEHICLES
+  Vehicle:
+    type: object
+    properties:
+      id:
+        type: integer
+      customer_id:
+        type: integer
+      make:
+        type: string
+      model:
+        type: string
+      year:
+        type: integer
+      vin:
+        type: string
+
+  VehicleCreatePayload:
+    type: object
+    required: [customer_id, make, model, year, vin]
+    properties:
+      customer_id:
+        type: integer
+      make:
+        type: string
+      model:
+        type: string
+      year:
+        type: integer
+      vin:
+        type: string
+
+  VehicleCreateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      vehicle:
+        $ref: "#/definitions/Vehicle"
+
+  VehicleUpdatePayload:
+    type: object
+    properties:
+      make:
+        type: string
+      model:
+        type: string
+      year:
+        type: integer
+      vin:
+        type: string
+
+  VehicleUpdateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      vehicle:
+        $ref: "#/definitions/Vehicle"
+
+  VehicleDeleteResponse:
+    type: object
+    properties:
+      message:
+        type: string
+
+  # SERVICE TICKETS
+  ServiceTicket:
+    type: object
+    properties:
+      id:
+        type: integer
+      customer_id:
+        type: integer
+      vehicle_id:
+        type: integer
+      status:
+        type: string
+        enum: [open, in_progress, completed]
+      description:
+        type: string
+      created_at:
+        type: string
+
+  TicketCreatePayload:
+    type: object
+    required: [customer_id, vehicle_id, description]
+    properties:
+      customer_id:
+        type: integer
+      vehicle_id:
+        type: integer
+      description:
+        type: string
+
+  TicketCreateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      ticket:
+        $ref: "#/definitions/ServiceTicket"
+
+  TicketUpdatePayload:
+    type: object
+    properties:
+      status:
+        type: string
+        enum: [open, in_progress, completed]
+      description:
+        type: string
+
+  TicketUpdateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      ticket:
+        $ref: "#/definitions/ServiceTicket"
+
+  TicketDeleteResponse:
+    type: object
+    properties:
+      message:
+        type: string
+
+  AddPartPayload:
+    type: object
+    required: [part_id, quantity]
+    properties:
+      part_id:
+        type: integer
+      quantity:
+        type: integer
+
+  AddPartResponse:
+    type: object
+    properties:
+      message:
+        type: string
+
+  EditMechanicsResponse:
+    type: object
+    properties:
+      message:
+        type: string
+
+  # ASSIGNMENTS
+  ServiceAssignment:
+    type: object
+    properties:
+      id:
+        type: integer
+      ticket_id:
+        type: integer
+      mechanic_id:
+        type: integer
+      assigned_at:
+        type: string
+
+  AssignmentCreatePayload:
+    type: object
+    required: [ticket_id, mechanic_id]
+    properties:
+      ticket_id:
+        type: integer
+      mechanic_id:
+        type: integer
+
+  AssignmentCreateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      assignment:
+        $ref: "#/definitions/ServiceAssignment"
+
+  AssignmentUpdatePayload:
+    type: object
+    properties:
+      mechanic_id:
+        type: integer
+
+  AssignmentUpdateResponse:
+    type: object
+    properties:
+      message:
+        type: string
+      assignment:
+        $ref: "#/definitions/ServiceAssignment"

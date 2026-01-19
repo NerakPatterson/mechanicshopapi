@@ -32,7 +32,7 @@ def add_part_to_ticket(user_id, role, ticket_id):
     return jsonify({"message": f"Part {part_id} added to ticket {ticket_id}"}), 200
 
 
-@ticket_bp.route("/", methods=["GET"])
+@ticket_bp.route("", methods=["GET"])
 @cache.cached(timeout=30)
 def get_tickets():
     """GET /tickets - Cached list of all service tickets."""
@@ -41,7 +41,7 @@ def get_tickets():
     return jsonify(tickets_schema.dump(tickets)), 200
 
 
-@ticket_bp.route("/", methods=["POST"])
+@ticket_bp.route("", methods=["POST"])
 @auth_required("admin", "mechanic")   # restrict creation
 @limiter.limit("20 per day")
 def create_ticket(user_id, role):

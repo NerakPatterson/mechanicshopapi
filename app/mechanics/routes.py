@@ -28,7 +28,7 @@ def ranked_mechanics():
 
 
 # GET all mechanics
-@mechanic_bp.route("/", methods=["GET"])
+@mechanic_bp.route("", methods=["GET"])
 @cache.cached(timeout=60)
 def get_mechanics():
     """GET /mechanics - Get all mechanics."""
@@ -38,7 +38,7 @@ def get_mechanics():
 
 
 # CREATE mechanic (admin only)
-@mechanic_bp.route("/", methods=["POST"])
+@mechanic_bp.route("", methods=["POST"])
 @auth_required("admin")
 @limiter.limit("5 per hour")
 def create_mechanic(user_id, role):

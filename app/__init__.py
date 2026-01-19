@@ -2,6 +2,18 @@ from flask import Flask
 from dotenv import load_dotenv
 import os
 from extensions import db, ma, migrate, limiter, cache
+from flask_swagger_ui import get_swaggerui_blueprint
+
+SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI (without trailing '/')
+API_URL = '/static/swagger.yaml'  # Our API URL (can of course be a local resource)
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': "Your API's Name"
+    }
+)
 
 def create_app():
     # Load environment variables
@@ -38,6 +50,7 @@ def create_app():
     app.register_blueprint(ticket_bp, url_prefix="/tickets")
     app.register_blueprint(assignment_bp, url_prefix="/assignments")
     app.register_blueprint(inventory_bp, url_prefix="/inventory")
+    app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL) #Registering our swagger blueprint
 
     # Import models inside app context so SQLAlchemy sees them
     with app.app_context():

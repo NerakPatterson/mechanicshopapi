@@ -34,7 +34,7 @@ def my_tickets(customer_id):
         "cost": str(t.cost)
     } for t in tickets]), 200
 
-@customer_bp.route("/", methods=["GET"])
+@customer_bp.route("", methods=["GET"])
 def get_customers():
     """GET /customers - Paginated list of customers."""
     page = int(request.args.get("page", 1))
@@ -49,7 +49,7 @@ def get_customers():
 
     return jsonify(customers_schema.dump(paginated)), 200
 
-@customer_bp.route("/", methods=["POST"])
+@customer_bp.route("", methods=["POST"])
 @auth_required("admin", "mechanic")   # admins and mechanics allowed
 @limiter.limit("10 per hour")
 def create_customer(user_id, role):

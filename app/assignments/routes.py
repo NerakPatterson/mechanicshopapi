@@ -8,7 +8,7 @@ from .schemas import assignment_schema, assignments_schema
 from . import assignment_bp
 from utils.decorators import auth_required   # unified decorator
 
-@assignment_bp.route("/", methods=["GET"])
+@assignment_bp.route("", methods=["GET"])
 @cache.cached(timeout=45)
 def get_assignments():
     """GET /assignments - Cached list of all service assignments."""
@@ -16,7 +16,7 @@ def get_assignments():
     assignments = db.session.execute(query).scalars().all()
     return jsonify(assignments_schema.dump(assignments)), 200
 
-@assignment_bp.route("/", methods=["POST"])
+@assignment_bp.route("", methods=["POST"])
 @auth_required("admin", "mechanic")   # restrict creation
 @limiter.limit("15 per day")
 def create_assignment(user_id, role):

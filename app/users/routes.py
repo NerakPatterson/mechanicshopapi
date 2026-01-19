@@ -9,8 +9,8 @@ from . import user_bp
 from utils.auth import encode_token
 from utils.decorators import auth_required
 
-# REGISTER USER
 
+# REGISTER USER
 @user_bp.route("/register", methods=["POST"])
 def register():
     """POST /users/register - Create a new user."""
@@ -20,6 +20,12 @@ def register():
     password = data.get("password")
     role = data.get("role")
 
+    # ⭐ Idempotent behavior FIRST ⭐
+    existing = db.session.query(User).filter_by(email=email).first()
+    if existing:
+        return jsonify(user_schema.dump(existing)), 200
+
+    # Validate fields
     if not email or not password or not role:
         return jsonify({"error": "Missing required fields"}), 400
 
@@ -38,8 +44,8 @@ def register():
 
     return jsonify(user_schema.dump(user)), 201
 
-# LOGIN USER
 
+# LOGIN USER
 @user_bp.route("/login", methods=["POST"])
 def login():
     """POST /users/login - Authenticate and return JWT."""
@@ -59,17 +65,17 @@ def login():
         "role": user.role
     }), 200
 
-# GET ALL USERS (ADMIN ONLY)
 
-@user_bp.route("/", methods=["GET"])
+# GET ALL USERS (ADMIN ONLY)
+@user_bp.route("", methods=["GET"])
 @auth_required("admin")
 def get_users(requester_id, role):
     """GET /users - List all users (admin only)."""
     users = db.session.execute(select(User)).scalars().all()
     return jsonify(users_schema.dump(users)), 200
 
-# GET SINGLE USER (ADMIN + MECHANIC)
 
+# GET SINGLE USER (ADMIN + MECHANIC)
 @user_bp.route("/<int:user_id>", methods=["GET"])
 @auth_required("admin", "mechanic")
 def get_user(requester_id, role, user_id):
@@ -80,8 +86,8 @@ def get_user(requester_id, role, user_id):
 
     return jsonify(user_schema.dump(user)), 200
 
-#  UPDATE USER (ADMIN ONLY) — NEW
 
+# UPDATE USER (ADMIN ONLY)
 @user_bp.route("/<int:user_id>", methods=["PUT"])
 @auth_required("admin")
 def update_user(requester_id, role, user_id):
@@ -92,7 +98,6 @@ def update_user(requester_id, role, user_id):
 
     data = request.json or {}
 
-    # Partial updates allowed
     if "email" in data:
         user.email = data["email"]
 
@@ -114,6 +119,7 @@ def update_user(requester_id, role, user_id):
         "message": f"User {user_id} updated by admin (user {requester_id})",
         "user": user_schema.dump(user)
     }), 200
+
 
 # DELETE USER (ADMIN ONLY)
 @user_bp.route("/<int:user_id>", methods=["DELETE"])

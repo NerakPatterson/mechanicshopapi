@@ -7,14 +7,14 @@ from .schemas import inventory_schema, inventories_schema
 from utils.decorators import auth_required
 
 # READ all inventory items
-@inventory_bp.route("/", methods=["GET"])
+@inventory_bp.route("", methods=["GET"])
 @auth_required("admin", "mechanic")
 def get_inventory(user_id, role):
     items = db.session.query(Inventory).all()
     return jsonify(inventories_schema.dump(items)), 200
 
 # CREATE new inventory item
-@inventory_bp.route("/", methods=["POST"])
+@inventory_bp.route("", methods=["POST"])
 @auth_required("admin")
 def add_inventory(user_id, role):
     try:

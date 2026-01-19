@@ -8,7 +8,7 @@ from .schemas import vehicle_schema, vehicles_schema
 from . import vehicle_bp
 from utils.decorators import auth_required   # unified decorator
 
-@vehicle_bp.route("/", methods=["GET"])
+@vehicle_bp.route("", methods=["GET"])
 @cache.cached(timeout=120)
 def get_vehicles():
     """GET /vehicles - Cached list of all vehicles."""
@@ -16,7 +16,7 @@ def get_vehicles():
     vehicles = db.session.execute(query).scalars().all()
     return jsonify(vehicles_schema.dump(vehicles)), 200
 
-@vehicle_bp.route("/", methods=["POST"])
+@vehicle_bp.route("", methods=["POST"])
 @auth_required("admin", "mechanic")   # restrict creation
 @limiter.limit("10 per hour")
 def create_vehicle(user_id, role):
