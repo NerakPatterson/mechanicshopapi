@@ -1,101 +1,96 @@
 Mechanic Shop API
-A RESTful API for managing a mechanic shop system, including users, mechanics, customers, vehicles, service tickets, and assignments.
-This project includes full Swagger documentation and a complete unittest test suite.
+A fully documented, tested, and modular Flask REST API for managing a mechanic shop’s operations — including users, customers, vehicles, service tickets, mechanics, assignments, and inventory.
 
- Features
-User registration, login, and role‑based access
-CRUD operations for mechanics, customers, vehicles, tickets, and assignments
-Ticket part management
-Mechanic ranking
-Token‑protected routes
-Fully documented with Swagger (OpenAPI 2.0)
-Complete test suite using Python’s built‑in unittest
-Modular blueprint structure for clean organization
+Features
+User registration & login (JWT-based)
+Role-based access control (admin, mechanic, customer)
+CRUD operations for:
+Users
+Customers
+Vehicles
+Service Tickets
+Mechanics
+Assignments
+Inventory
+
+Swagger/OpenAPI documentation
+Full unit test suite with isolated in-memory database
+Clean project structure using Flask blueprints
+Marshmallow serialization
+SQLAlchemy ORM
+Flask-Migrate migrations
 
 Project Structure
 Code
-project/
-│
-├── app.py
-├── users/
-├── mechanics/
-├── customers/
-├── vehicles/
-├── tickets/
-├── assignments/
-│
-├── swagger_2.0.yaml
-│
-└── tests/
-    ├── test_users.py
-    ├── test_mechanics.py
-    ├── test_customers.py
-    ├── test_vehicles.py
-    ├── test_tickets.py
-    └── test_assignments.py
+app/
+    users/
+    customers/
+    mechanics/
+    vehicles/
+    tickets/
+    assignments/
+    inventory/
+    tests/
+        base.py
+        test_users.py
+        test_customers.py
+        test_mechanics.py
+        test_vehicles.py
+        test_tickets.py
+        test_assignments.py
+        test_inventory.py
+    models.py
+    extensions.py
+    swagger.yaml
+run.py
+README.md
 
-Installation & Setup
+Installation
 1. Clone the repository
 Code
-git clone https://github.com/YourName/your-repo-name
-cd your-repo-name
-2. Create and activate a virtual environment
-Windows
-
+git clone <your-repo-url>
+cd mechanic-shop-api
+2. Create a virtual environment
 Code
 python -m venv venv
-venv\Scripts\activate
-Mac/Linux
-
-Code
-python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate   # macOS/Linux
+venv\Scripts\activate      # Windows
 3. Install dependencies
 Code
 pip install -r requirements.txt
-
- Running the Application
-Code
-python app.py
-The API will run at:
+Environment Variables
+Create a .env file:
 
 Code
-http://127.0.0.1:5000
+FLASK_ENV=development
+SECRET_KEY=your-secret-key
+DATABASE_URL=sqlite:///app.db
 
-Swagger Documentation
-Swagger UI is available at:
-
+Running the App
 Code
-http://127.0.0.1:5000/swagger
-The full OpenAPI spec is located in:
-
+flask run
+Or:
 Code
-swagger_2.0.yaml
+python run.py
 
 Running Tests
-All tests are located in the tests/ folder.
-
-Run the entire test suite with:
-Windows
+Your tests now live under app/tests/.
+Run the full suite:
 Code
-python -m unittest discover tests
+python -m unittest discover app/tests
+This uses an in-memory SQLite database for clean, isolated test runs.
 
-Mac/Linux
+API Documentation (Swagger)
+Your full API documentation is available at:
 Code
-python3 -m unittest discover tests
+/swagger
+Or open the swagger.yaml file directly.
 
-Technologies Used
-Python
-Flask
-Flask Blueprints
-Swagger / OpenAPI 2.0
-Unittest
-JSON Web Tokens (JWT)
-
-Notes
-Some routes require authentication via Authorization: Bearer <token>
-Negative tests are included for missing fields, invalid IDs, and unauthorized access
-Inventory module is scaffolded but not yet implemented
-
-License
-This project is for educational purposes.
+Tech Stack
+Flask 3.x
+SQLAlchemy 2.x
+Flask‑SQLAlchemy 3.x
+Marshmallow / Flask‑Marshmallow
+Flask‑Migrate
+PyMySQL (optional for MySQL)
+python‑dotenv
