@@ -7,7 +7,7 @@ info:
 
 host: "mechanicshopapi-bm0h.onrender.com"
 schemes:
-  - "http"
+  - "https"
 
 consumes:
   - "application/json"
