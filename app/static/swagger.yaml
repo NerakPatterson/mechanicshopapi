@@ -5,7 +5,7 @@ info:
   description: "API documentation for the mechanic shop management system"
   version: "1.0.0"
 
-host: "127.0.0.1:5000"
+host: "mechanicshopapi-bm0h.onrender.com"
 schemes:
   - "http"
 
