@@ -80,7 +80,7 @@ class Mechanic(db.Model):
     )
 
 class ServiceAssignment(db.Model):
-    __tablename__ = 'service_assignment'  # singular to match DB
+    __tablename__ = 'service_assignment'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     service_ticket_id = db.Column(db.Integer, db.ForeignKey('service_tickets.id'), nullable=False)
     mechanic_id = db.Column(db.Integer, db.ForeignKey('mechanics.id'), nullable=False)
@@ -89,9 +89,13 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    # FIXED: match DB schema (VARCHAR(255))
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.Enum('admin', 'mechanic', 'customer'), nullable=False)
+
+    # ✅ FIXED: PostgreSQL requires a named ENUM type
+    role = db.Column(
+        db.Enum('admin', 'mechanic', 'customer', name='user_role_enum'),
+        nullable=False
+    )
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
