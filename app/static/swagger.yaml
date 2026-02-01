@@ -745,7 +745,7 @@ definitions:
 
   UserRegisterPayload:
     type: object
-    required: [name, email, password]
+    required: [name, email, password, role]
     properties:
       name:
         type: string
@@ -753,6 +753,9 @@ definitions:
         type: string
       password:
         type: string
+      role:
+        type: string
+        enum: [admin, mechanic, customer]
 
   UserLoginPayload:
     type: object
