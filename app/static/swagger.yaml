@@ -1026,15 +1026,28 @@ definitions:
         type: string
 
   TicketCreatePayload:
-    type: object
-    required: [customer_id, vehicle_id, description]
-    properties:
-      customer_id:
-        type: integer
-      vehicle_id:
-        type: integer
-      description:
-        type: string
+  type: object
+  required:
+    - vehicle_id
+    - description
+    - status
+    - cost
+  properties:
+    vehicle_id:
+      type: integer
+      example: 1
+    description:
+      type: string
+      example: "Oil change needed"
+    status:
+      type: string
+      enum: [open, in_progress, completed]
+      example: open
+    cost:
+      type: number
+      format: float
+      example: 0
+
 
   TicketCreateResponse:
     type: object
