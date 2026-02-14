@@ -1,46 +1,44 @@
 from flask import Flask
 from dotenv import load_dotenv
 import os
-from extensions import db, ma, migrate, limiter, cache
+
+from extensions import db, ma, migrate, limiter, cache, jwt
 from flask_swagger_ui import get_swaggerui_blueprint
 
-SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI (without trailing '/')
-API_URL = '/static/swagger.yaml'  # Our API URL (can of course be a local resource)
+
+SWAGGER_URL = '/api/docs'
+API_URL = '/static/swagger.yaml'
 
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
     API_URL,
-    config={
-        'app_name': "Your API's Name"
-    }
+    config={'app_name': "Your API's Name"}
 )
 
+
 def create_app(config_class=None):
-    # Load environment variables
     load_dotenv()
 
     app = Flask(__name__)
 
-    # If a config class is provided (ProductionConfig), use it
+    # Load config
     if config_class:
         app.config.from_object(config_class)
     else:
-        # Default to environment variables for local development
         app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret')
+        app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret")
 
-    # Optional cache config
-    app.config['CACHE_TYPE'] = 'SimpleCache'
-
-    # Initialize extensions
+    # Initialize extensions AFTER config is set
     db.init_app(app)
     ma.init_app(app)
     migrate.init_app(app, db)
     cache.init_app(app)
     limiter.init_app(app)
+    jwt.init_app(app)
 
-    # Import and register blueprints
+    # Register blueprints
     from app.users import user_bp
     from app.mechanics import mechanic_bp
     from app.customers import customer_bp
@@ -58,9 +56,5 @@ def create_app(config_class=None):
     app.register_blueprint(inventory_bp, url_prefix="/inventory")
     app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
-    # Import models inside app context so SQLAlchemy sees them
-    with app.app_context():
-        from models import User, Mechanic, Customer, Vehicle, ServiceTicket, ServiceAssignment, Inventory
-        db.create_all()
-
+    # DO NOT create tables here — tests will handle it
     return app

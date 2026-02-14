@@ -5,6 +5,10 @@ from flask_migrate import Migrate
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_caching import Cache
+from flask_jwt_extended import JWTManager
+
+jwt = JWTManager()
+
 
 # Base class for SQLAlchemy models
 class Base(DeclarativeBase):

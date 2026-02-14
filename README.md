@@ -1,10 +1,22 @@
 Mechanic Shop API
 A fully documented, tested, and modular Flask REST API for managing a mechanic shop’s operations — including users, customers, vehicles, service tickets, mechanics, assignments, and inventory.
 
+This project demonstrates professional backend engineering practices:
+Clean architecture using Flask Blueprints
+SQLAlchemy ORM with proper relationships
+Marshmallow schemas for validation/serialization
+JWT authentication with role‑based access control
+Full unit test suite with isolated in‑memory database
+Swagger/OpenAPI documentation
+Flask‑Migrate for database migrations
+
 Features
-User registration & login (JWT-based)
-Role-based access control (admin, mechanic, customer)
-CRUD operations for:
+Authentication & Authorization
+JWT‑based login
+
+Role‑based access control (admin, mechanic, customer)
+
+CRUD Operations
 Users
 Customers
 Vehicles
@@ -12,13 +24,26 @@ Service Tickets
 Mechanics
 Assignments
 Inventory
+Ticket part management
+Mechanic assignment editing
 
-Swagger/OpenAPI documentation
-Full unit test suite with isolated in-memory database
-Clean project structure using Flask blueprints
-Marshmallow serialization
-SQLAlchemy ORM
-Flask-Migrate migrations
+Testing
+Full test suite under app/tests/
+
+In‑memory SQLite for clean, isolated runs
+Tests cover:
+Users
+Customers
+Vehicles
+Mechanics
+Tickets
+Assignments
+Inventory
+
+Documentation
+Swagger UI at /swagger
+
+swagger.yaml included for external tools
 
 Project Structure
 Code
@@ -44,19 +69,18 @@ app/
     swagger.yaml
 run.py
 README.md
-
 Installation
 1. Clone the repository
-Code
+bash
 git clone <your-repo-url>
 cd mechanic-shop-api
 2. Create a virtual environment
-Code
+bash
 python -m venv venv
 source venv/bin/activate   # macOS/Linux
 venv\Scripts\activate      # Windows
 3. Install dependencies
-Code
+bash
 pip install -r requirements.txt
 Environment Variables
 Create a .env file:
@@ -65,32 +89,39 @@ Code
 FLASK_ENV=development
 SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///app.db
-
-Running the App
-Code
+▶Running the App
+Option A — Flask CLI
+bash
 flask run
-Or:
-Code
+Option B — Python entrypoint
+bash
 python run.py
+ Running Tests
+All tests live under app/tests/.
 
-Running Tests
-Your tests now live under app/tests/.
 Run the full suite:
-Code
-python -m unittest discover app/tests
-This uses an in-memory SQLite database for clean, isolated test runs.
+bash
+python -m unittest discover app/tests -v
+This uses an in‑memory SQLite database, ensuring clean, isolated test runs.
 
 API Documentation (Swagger)
-Your full API documentation is available at:
+Open your browser to:
 Code
 /swagger
-Or open the swagger.yaml file directly.
+Or view the raw spec:
 
-Tech Stack
+Code
+app/swagger.yaml
+🛠 Tech Stack
 Flask 3.x
 SQLAlchemy 2.x
 Flask‑SQLAlchemy 3.x
 Marshmallow / Flask‑Marshmallow
 Flask‑Migrate
+Flask‑Caching
+Flask‑Limiter
 PyMySQL (optional for MySQL)
 python‑dotenv
+
+Acknowledgments
+This project was built as a full backend demonstration of clean architecture, testing discipline, and API design best practices for coding temple.

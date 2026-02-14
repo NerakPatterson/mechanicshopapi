@@ -1,5 +1,5 @@
+import datetime
 from extensions import db
-from sqlalchemy.sql import func
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Junction table: ServiceTicket ↔ Inventory
@@ -44,7 +44,10 @@ class ServiceTicket(db.Model):
     __tablename__ = 'service_tickets'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicle.id'), nullable=False)
-    date = db.Column(db.Date, default=func.now(), nullable=False)
+
+    # FIXED: must be a pure date, not a timestamp
+    date = db.Column(db.Date, default=datetime.date.today, nullable=False)
+
     description = db.Column(db.Text)
     status = db.Column(db.String(50), nullable=False)
     cost = db.Column(db.Numeric(8, 2), nullable=False)
@@ -91,7 +94,6 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
 
-    # ✅ FIXED: PostgreSQL requires a named ENUM type
     role = db.Column(
         db.Enum('admin', 'mechanic', 'customer', name='user_role_enum'),
         nullable=False
